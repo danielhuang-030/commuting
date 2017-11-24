@@ -1,14 +1,25 @@
 <?php
-// 取得 2017 行事曆資料
-const HOLIDAY_URL = 'http://opendataap2.e-land.gov.tw/resource/files/2017-01-03/60408d8bfae6d965f02732c257f285e3.json';
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, HOLIDAY_URL);
-curl_setopt($ch, CURLOPT_HEADER, 0);
-curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; .NET CLR 1.1.4322)');
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-curl_setopt($ch, CURLOPT_TIMEOUT, 8);
-$jsonData = curl_exec($ch);
-curl_close($ch);
+// 取得行事曆資料
+$jsonData = [];
+$calendarPath = sprintf('%s/data/', __DIR__);
+$calendarFileList = array_diff(scandir($calendarPath), ['..', '.']);
+if (!empty($calendarFileList)) {
+    foreach ($calendarFileList as $calendarFile) {
+        $tempData = json_decode(file_get_contents($calendarPath . $calendarFile));
+        if (is_array($tempData)) {
+            foreach ($tempData as $i => $temp) {
+                $jsonData[$temp->西元日期] = [
+                    'date' => $temp->西元日期,
+                    'isHoliday' => '2' === $temp->是否放假 ? 1 : 0,
+                    'name' => $temp->備註,
+                    'weekday' => $temp->星期,
+                ];
+            }
+        }
+    }
+}
+// print_r($jsonData);exit;
+$jsonData = json_encode($jsonData);
 
 $title = '通勤票價日期計算';
 ?>
@@ -59,11 +70,11 @@ $title = '通勤票價日期計算';
     </div>
     <div class="form-group">
       <label for="startDate">起日</label>
-      <input type="text" class="form-control date" id="startDate" name="start_date" placeholder="請輸入起日" required="required" value="" />
+      <input type="text" class="form-control date" id="startDate" name="start_date" placeholder="請輸入起日" required="required" value="" readonly="" style="background-color: #fff" />
     </div>
     <div class="form-group">
       <label for="endDate">迄日</label>
-      <input type="text" class="form-control date" id="endDate" name="end_date" placeholder="請輸入迄日" required="required" value="" />
+      <input type="text" class="form-control date" id="endDate" name="end_date" placeholder="請輸入迄日" required="required" value="" readonly="" style="background-color: #fff" />
     </div>
     <button type="submit" class="btn btn-primary btn-lg btn-block">計算</button>
   </form>
@@ -165,6 +176,9 @@ function getFareResult(stationIdStart = '', stationIdEnd = '', days = 0) {
     return;
   }
 
+  // reset holidayInfoList
+  holidayInfoList = [], makeUpWorkdayInfoList = [];
+
   $.ajax({
     'url': `${apiUrl['fare']}/${stationIdStart}/to/${stationIdEnd}`,
     'async': false,
@@ -179,7 +193,7 @@ function getFareResult(stationIdStart = '', stationIdEnd = '', days = 0) {
       for (let i in json.Fares) {
         if ('成復' === json.Fares[i]['TicketType']) {
           $('.resultBlock').fadeIn();
-            
+
           // total
           const price = json.Fares[i]['Price'];
           const regularTicketInfo = regularTicketFormula[days];
@@ -188,6 +202,10 @@ function getFareResult(stationIdStart = '', stationIdEnd = '', days = 0) {
 
           // 工作天
           let workingDays = getWorkingDays($('input[name="start_date"]').val(), $('input[name="end_date"]').val());
+
+          console.log(holidayInfoList);
+          console.log(makeUpWorkdayInfoList);
+
           if ('' !== $('input[name=not_work_day]').val()) {
             workingDays -= parseInt($('input[name=not_work_day]').val());
           }
@@ -195,7 +213,7 @@ function getFareResult(stationIdStart = '', stationIdEnd = '', days = 0) {
           const discount = Math.ceil(fareForDay / (price * 2) * 100) / 100;
           $('.resultBlock p code#workDay').text(workingDays);
           $('.resultBlock p code#totalDay').text(regularTicketInfo['days']);
-          $('.resultBlock p code#holiday').html(0 < holidayInfoList.length ? '<br />' + holidayInfoList.join('<br />') : '無');
+          $('.resultBlock p code#holiday').html((0 < holidayInfoList.length ? '<br />' + holidayInfoList.join('<br />') : '無') + (0 < makeUpWorkdayInfoList.length ? '<br /><span style="font-weight: 900; color: #f9f2f4; background-color: #c7254e; ">' + makeUpWorkdayInfoList.join('<br />') + '</span>' : ''));
           $('.resultBlock p code#fareForDay').text(fareForDay);
           $('.resultBlock p code#discount').text(discount);
           $('.resultBlock p code#result').html(discount >= discountEasycard ? '<sapn style="font-color: red; font-weight: 900; ">悠遊卡</span>' : '定期票');
@@ -213,44 +231,38 @@ function getWorkingDays(startDate = '', endDate = '') {
   let momentEndDate = moment(endDate);
   let currentDate = momentStartDate;
   let workingDays = 0;
-  holidayInfoList = [];
   while (currentDate <= momentEndDate) {
     if (!isHoliday(currentDate)) {
       workingDays++;
     }
-    /*
-    let weekDay = currentDate.day();
-    if (weekDay != 0 && weekDay != 6) {
-      workingDays++;
-    }
-    */
     currentDate.add(1, 'days');
   }
   return workingDays;
 }
 
 // 是否為假日
-var holidayData = $.parseJSON($('#json-data-holiday').text());
-var holidayInfoList = [];
+const holidayData = $.parseJSON($('#json-data-holiday').text());
+let holidayInfoList = [], makeUpWorkdayInfoList = [];
 function isHoliday(date = '') {
   let isHoliday = false;
   if ('' === date) {
     return isHoliday;
   }
   date = moment(date);
-  for (let i in holidayData) {
-    let specialDay = moment(holidayData[i]['\ufeffdate']);
-    if (specialDay.isBefore(date)) {
-      continue;
-    }
-      
-    if (specialDay.isSame(date) && '是' === holidayData[i]['isHoliday']) {
-      if ('星期六、星期日' !== holidayData[i]['holidayCategory']) {
-        holidayInfoList.push(specialDay.format('YYYY/M/D') + ': ' + (0 < holidayData[i]['name'].length ? holidayData[i]['name'] : holidayData[i]['holidayCategory']));
+  const keyDate = date.format('YYYYMMDD');
+
+  if ("object" !== typeof holidayData[keyDate]) {
+      return isHoliday;
+  } else {
+      isHoliday = (1 === holidayData[keyDate]['isHoliday']);
+      if (0 < holidayData[keyDate]['name'].length) {
+          var dateInfo = date.format('YYYY/M/D') + ': ' + holidayData[keyDate]['name'];
+          if (isHoliday) {
+              holidayInfoList.push(dateInfo);
+          } else {
+              makeUpWorkdayInfoList.push(dateInfo);
+          }
       }
-      isHoliday = true;
-      break;
-    }
   }
   return isHoliday;
 }
@@ -258,10 +270,10 @@ function isHoliday(date = '') {
 $(function() {
   // 重整車站列表
   reloadStationList();
-  
+
   // 隱藏結果
   $('.resultBlock').hide();
-  
+
   // 日曆
   $('.date').datepicker({
     format: 'yyyy-mm-dd',
@@ -276,18 +288,18 @@ $(function() {
   $startDate.on('changeDate', function() {
     calculateDate($startDate, $endDate);
   });
-  
+
   // 預設今天
   if ("" === $startDate.val()) {
       $startDate.val(moment().format('YYYY-MM-DD'));
       calculateDate($startDate, $endDate);
   }
-  
+
   // 切換天數時重新計算結束日
   $('select[name="diff_day"]').change(function() {
       calculateDate($startDate, $endDate);
   });
-  
+
   // 計算
   $('form').submit(function() {
     getFareResult($('select[name=station_start]').val(), $('select[name=station_end]').val(), $('select[name=diff_day]').val());

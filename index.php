@@ -1,6 +1,5 @@
 <?php
 $title = '即時火車時刻表';
-
 ?>
 
 <!DOCTYPE html>
@@ -13,8 +12,28 @@ $title = '即時火車時刻表';
         <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
         <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" />
         <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.4.0/css/bootstrap-datepicker.css" />
+        <style>
+        .well .btn {
+            margin: 6px 0;
+            width: calc((100% - 20px) / 3);
+            border: 2px solid #5bc3e8;
+            background-color: #fff;
+            border-radius: 10px;
+            color: #5bc3e8;
+            font-size: 14px;
+            height: 50px;
+            font-weight: 900;
+            padding: 0;
+        }
+        .well .btn:not(:nth-of-type(3n)) {
+            margin-right: 10px;
+        }
+        </style>
+
+
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
         <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/localforage/1.5.3/localforage.min.js"></script>
     </head>
 <body>
         <div class="container">
@@ -22,17 +41,23 @@ $title = '即時火車時刻表';
             <form id="dateForm" method="post" role="form">
                 <div class="form-group">
                     <label>車站</label>
-                    <select class="form-control station" name="station" required="required">
+                    <select class="form-control" name="station" required="required">
                         <option value="">請選擇</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>方向</label>
-                    <select class="form-control station" name="direction" required="required">
+                    <select class="form-control" name="direction" required="required">
                         <option value="">請選擇</option>
                         <option value="0">北上</option>
                         <option value="1">南下</option>
                     </select>
+                </div>
+                <div class="form-group history">
+                    <label>歷史紀錄</label>
+                    <div class="well" style="padding: 5px 10px; ">
+                      <button class="btn" type="button" style="margin: 6px 0; width: calc((100% - 20px) / 3); border: 2px solid #5bc3e8; background-color: #fff; border-radius: 10px; color: #5bc3e8; font-size: 14px; height: 50px; font-weight: 900; padding: 0; ">台北 北上</button>
+                    </div>
                 </div>
                 <button type="submit" class="btn btn-primary btn-lg btn-block">查詢</button>
             </form>
@@ -41,13 +66,31 @@ $title = '即時火車時刻表';
 
         <script type="text/javascript">
             // 預設值（上午預設埔心，其他時段預設台北）
-            let hour = new Date().getHours();
-            const defailtValue = {
+            const hour = new Date().getHours();
+            let defaultValue = {
               // 車站
-              'station': ((hour >= 3 && hour <= 12) ? '1018' : '1008'),
+              station: ((hour >= 3 && hour <= 12) ? '1018' : '1008'),
               // 方向
-              'direction': (hour >= 3 && hour <= 12) ? '0' : '1'
+              direction: (hour >= 3 && hour <= 12) ? '0' : '1'
             };
+
+            // localforage config
+            const historyKey = "history";
+            localforage.config({
+              dirver: "indexedDB",
+              name: "danielhuang-030/commuting",
+              version: 3,
+              description: "danielhuang-030/commuting"
+            });
+
+//            localforage.getItem(historyKey).then(function(value) {
+//              if (null !== value) {
+//                console.log(value);
+//              }
+//            }).catch (function(err) {
+//              console.log("getItem");
+//              console.log(err);
+//            });
 
             // API url
             const apiUrl = {
@@ -76,7 +119,7 @@ $title = '即時火車時刻表';
                 $station.find('option').not(':first').remove();
                 for (let i in stationPair) {
                   let $option = $('<option/>').val(i).text('undefined' !== typeof stationPair[i] ? stationPair[i] : '-');
-                  if (i === defailtValue['station']) {
+                  if (i === defaultValue['station']) {
                     $option.prop('selected', true);
                   }
                   $station.append($option);
@@ -101,12 +144,37 @@ $title = '即時火車時刻表';
               });
             }
 
+            // reload history
+            function reloadHistory() {
+              const $history = $("div.history");
+              console.log(stationPair);
+
+              localforage.getItem(historyKey).then(function(value) {
+                if (0 === value.length) {
+                  $history.hide();
+                } else {
+                  let historyHtml = "";
+                  rvalue = value.reverse();
+                  $.each(rvalue, function(i, data) {
+                    historyHtml += '<button class="btn" type="button">台北 北上</button>';
+                  });
+                  $history.fadeIn().find("div.well").html(historyHtml);
+                }
+              }).catch (function(err) {
+                console.log(err);
+              });
+
+            }
+
             // 取得票價計算結果
-            function getTimetableResult(stationId = defailtValue['station'], direction = defailtValue['direction']) {
+            function getTimetableResult(stationId = defaultValue['station'], direction = defaultValue['direction']) {
               if (0 === stationId.length || 0 === direction.length) {
                 alert('資料設定錯誤，請重新輸入');
                 return;
               }
+
+              // localforage save
+              addHistory(stationId, direction);
 
               // 設定過濾條件
               let conditions = [
@@ -141,7 +209,49 @@ $title = '即時火車時刻表';
                   if (0 < resultHtml.length) {
                     $('.resultBlock').fadeIn().html(resultHtml);
                   }
+
+                  // reload history
+                  reloadHistory();
                 }
+              });
+            }
+
+            // 加入歷史紀錄
+            function addHistory(stationId, direction) {
+              localforage.getItem(historyKey).then(function(value) {
+                if (null === value) {
+                  value = [];
+                } else {
+                  let unsetIndexs = [];
+                  $.each(value, function(i, data) {
+                    if (stationId === data.stationId && direction === data.direction) {
+                      unsetIndexs.push(i);
+                    }
+                  });
+                  if (0 < unsetIndexs.length) {
+                    for (let i in unsetIndexs) {
+                      value.splice(unsetIndexs[i], 1);
+                    }
+                  }
+                }
+                if (5 < value.length) {
+                  value.shift();
+                }
+                value.push({
+                  stationId: stationId,
+                  direction: direction,
+                  date: new Date()
+                });
+                localforage.setItem(historyKey, value).then(function(value) {
+                  console.log("setItem success");
+                  // console.log(value);
+                }).catch(function(err) {
+                  console.log("setItem");
+                  console.log(err);
+                });
+              }).catch (function(err) {
+                console.log("getItem");
+                console.log(err);
               });
             }
 
@@ -152,8 +262,11 @@ $title = '即時火車時刻表';
               // 重整車種列表
               reloadTrainClassificationList();
 
+              // reload history
+              reloadHistory();
+
               // 方向預設值
-              $(`select[name=direction] option[value=${defailtValue['direction']}]`).prop('selected', true);
+              $(`select[name=direction] option[value=${defaultValue['direction']}]`).prop('selected', true);
 
               // 隱藏結果
               $('.resultBlock').hide();

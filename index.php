@@ -46,7 +46,7 @@ $title = '即時火車時刻表';
               // 車站
               'station': ((hour >= 3 && hour <= 12) ? '1018' : '1008'),
               // 方向
-              'direction': '1'
+              'direction': (hour >= 3 && hour <= 12) ? '0' : '1'
             };
 
             // API url

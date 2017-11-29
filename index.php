@@ -38,7 +38,7 @@ $title = '即時火車時刻表';
         <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
         <script src="//cdnjs.cloudflare.com/ajax/libs/localforage/1.5.3/localforage.min.js"></script>
     </head>
-<body>
+    <body>
         <div class="container">
             <h3><?php echo $title; ?></h3>
             <form id="dateForm" method="post" role="form">
@@ -58,9 +58,7 @@ $title = '即時火車時刻表';
                 </div>
                 <div class="form-group history">
                     <label>歷史紀錄</label>
-                    <div class="well" style="padding: 5px 10px; ">
-                      <button class="btn" type="button" style="margin: 6px 0; width: calc((100% - 20px) / 3); border: 2px solid #5bc3e8; background-color: #fff; border-radius: 10px; color: #5bc3e8; font-size: 14px; height: 50px; font-weight: 900; padding: 0; ">台北 北上</button>
-                    </div>
+                    <div class="well" style="padding: 5px 10px; "></div>
                 </div>
                 <button type="submit" class="btn btn-primary btn-lg btn-block">查詢</button>
             </form>
@@ -80,8 +78,8 @@ $title = '即時火車時刻表';
         // history config
         const historyConfig = {
             key: "history",
-            limit: 6,
-        }
+            limit: 6
+        };
 
         // localforage config
         localforage.config({
@@ -100,17 +98,6 @@ $title = '即時火車時刻表';
           // 車次即時訊息
           'timetable': 'http://ptx.transportdata.tw/MOTC/v2/Rail/TRA/LiveBoard'
         };
-
-        // 如果已有歷史紀錄，取得最後一次查詢車站與方想當作預設值
-        localforage.getItem(historyConfig.key).then(function(value) {
-          if (null !== value) {
-            rvalue = value.reverse();
-            defaultValue.station = rvalue[0].stationId;
-            defaultValue.direction = rvalue[0].direction;
-          }
-        }).catch (function(err) {
-          console.log(err);
-        });
 
         // 重新整理車站列表
         var stationPair = {};
@@ -135,13 +122,23 @@ $title = '即時火車時刻表';
               $station.append($option);
             }
 
-            // 方向預設值
-            $(`select[name=direction] option[value=${defaultValue['direction']}]`).prop('selected', true);
+            // 如果已有歷史紀錄，取得最後一次查詢車站與方想當作預設值
+            localforage.getItem(historyConfig.key).then((value) => {
+              if (null !== value) {
+                rvalue = value.reverse();
+                defaultValue.station = rvalue[0].stationId;
+                defaultValue.direction = rvalue[0].direction;
+              }
+            }).then(() => {
+                // set selected options
+                setSelectedOptions(defaultValue.station, defaultValue.direction);
 
-            // reload history
-            setTimeout(function() {
-              reloadHistory();
-            }, 500);
+                // reload history
+                reloadHistory();
+            }).catch ((err) => {
+              console.log("get history data err: ", err);
+            });
+
           }, 'json');
         }
 
@@ -167,8 +164,8 @@ $title = '即時火車時刻表';
           const $history = $("div.history");
           $history.hide();
 
-          localforage.getItem(historyConfig.key).then(function(value) {
-            if (0 < value.length) {
+          localforage.getItem(historyConfig.key).then((value) => {
+            if (null !== value) {
               let historyHtml = "";
               rvalue = value.reverse();
               $.each(rvalue, function(i, data) {
@@ -178,8 +175,8 @@ $title = '即時火車時刻表';
               });
               $history.fadeIn().find("div.well").html(historyHtml);
             }
-          }).catch (function(err) {
-            console.log(err);
+          }).catch ((err) => {
+            console.log("reload history data err: ", err);
           });
 
         }
@@ -192,7 +189,7 @@ $title = '即時火車時刻表';
           }
 
           // 加入歷史紀錄
-          addHistory(stationId, direction);
+          addHistory(stationId, direction).then(() => {
 
           // 設定過濾條件
           let conditions = [
@@ -213,7 +210,7 @@ $title = '即時火車時刻表';
                 alert('資料取得錯誤，請稍後重試');
                 return;
               }
-              let resultHtml = ''
+              let resultHtml = '';
               for (let i in result) {
                 resultHtml += `
             <blockquote>
@@ -229,16 +226,18 @@ $title = '即時火車時刻表';
               }
 
               // reload history
-              setTimeout(function() {
-                reloadHistory();
-              }, 500);
+              reloadHistory();
             }
           });
+
+          });
+
+
         }
 
         // 加入歷史紀錄
         function addHistory(stationId, direction) {
-          localforage.getItem(historyConfig.key).then(function(value) {
+          return localforage.getItem(historyConfig.key).then((value) => {
             if (null === value) {
               value = [];
             } else {
@@ -262,17 +261,18 @@ $title = '即時火車時刻表';
               direction: direction,
               date: new Date()
             });
-            localforage.setItem(historyConfig.key, value).then(function(value) {
-              console.log("setItem success");
-              // console.log(value);
-            }).catch(function(err) {
-              console.log("setItem");
-              console.log(err);
+            localforage.setItem(historyConfig.key, value).catch((err) => {
+              console.log("add history err: ", err);
             });
-          }).catch (function(err) {
-            console.log("getItem");
-            console.log(err);
+          }).catch ((err) => {
+            console.log("get history err: ", err);
           });
+        }
+
+        // set selected options
+        function setSelectedOptions(stationId, direction) {
+          $("select[name=station]").find("option[value=" + stationId + "]").prop("selected", "selected");
+          $("select[name=direction]").find("option[value=" + direction + "]").prop("selected", "selected");
         }
 
         $(function () {
@@ -293,8 +293,7 @@ $title = '即時火車時刻表';
 
           // 歷史紀錄
           $("div.well").on("click", ".btn-history", function() {
-            $("select[name=station]").find("option[value=" + $(this).attr("stationId") + "]").prop("selected", "selected");
-            $("select[name=direction]").find("option[value=" + $(this).attr("direction") + "]").prop("selected", "selected");
+            setSelectedOptions($(this).attr("stationId"), $(this).attr("direction"));
           });
 
         });

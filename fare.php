@@ -96,17 +96,17 @@ $title = '通勤票價日期計算';
 // 預設值
 const defailtValue = {
   // 埔心
-  'station_start': '1018',
+  station_start: '1018',
   // 台北
-  'station_end': '1008',
+  station_end: '1008',
 };
 
 // API url
 const apiUrl = {
   // 車站列表
-  'station': 'http://ptx.transportdata.tw/MOTC/v2/Rail/TRA/Station',
+  station: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/Station',
   // 車站票價
-  'fare': 'http://ptx.transportdata.tw/MOTC/v2/Rail/TRA/ODFare'
+  fare: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/ODFare'
 };
 
 // 定期票計算公式
@@ -147,20 +147,25 @@ function calculateDate($startDate = $('input[name="start_date"]'), $endDate = $(
 }
 
 // 重新整理車站列表
+var stationPair = {};
 function reloadStationList() {
-  $.get(apiUrl['station'], {
+  $.get(apiUrl.station, {
     '$format': 'json'
-  }, function(stationList) {
-    if (0 === stationList.length) {
+  }, function(stations) {
+    if (0 === stations.length) {
       return false;
     }
+    for (let i in stations) {
+      stationPair[stations[i]['StationID']] = stations[i]['StationName']['Zh_tw'];
+    }
+
     const stationNameList = ['station_start', 'station_end'];
     for (let i in stationNameList) {
       let $station = $('select[name=' + stationNameList[i] + ']');
       $station.find('option').not(':first').remove();
-      for (j in stationList) {
-        let $option = $('<option/>').val(stationList[j]['StationID']).text(stationList[j]['StationName']['Zh_tw']);
-        if (stationList[j]['StationID'] === defailtValue[stationNameList[i]]) {
+      for (let j in stationPair) {
+        let $option = $('<option/>').val(j).text('undefined' !== typeof stationPair[j] ? stationPair[j] : '-');
+        if (j === defailtValue[stationNameList[i]]) {
           $option.prop('selected', true);
         }
         $station.append($option);
@@ -173,21 +178,20 @@ function reloadStationList() {
 function getFareResult(stationIdStart = '', stationIdEnd = '', days = 0) {
   if (0 === stationIdStart.length || 0 === stationIdEnd.length || 0 === days) {
     alert('資料設定錯誤，請重新輸入');
-    return;
+    return false;
   }
 
   // reset holidayInfoList
   holidayInfoList = [], makeUpWorkdayInfoList = [];
 
   $.ajax({
-    'url': `${apiUrl['fare']}/${stationIdStart}/to/${stationIdEnd}`,
-    'async': false,
+    'url': `${apiUrl.fare}/${stationIdStart}/to/${stationIdEnd}`,
     'data': {'$format': 'json'},
     'dataType': 'json',
     'success': function(result) {
       if (0 === result[0].length || 0 === result[0].Fares.length) {
         alert('資料取得錯誤，請稍後重試');
-        return;
+        return false;
       }
       const json = result[0];
       for (let i in json.Fares) {
@@ -220,9 +224,10 @@ function getFareResult(stationIdStart = '', stationIdEnd = '', days = 0) {
           break;
         }
       }
-      return;
+
     }
   });
+  return false;
 }
 
 // 取得工作日

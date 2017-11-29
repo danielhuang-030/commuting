@@ -92,21 +92,21 @@ $title = '即時火車時刻表';
         // API url
         const apiUrl = {
           // 車站列表
-          'station': 'http://ptx.transportdata.tw/MOTC/v2/Rail/TRA/Station',
+          station: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/Station',
           // 車種列表
-          'classification': 'http://ptx.transportdata.tw/MOTC/v2/Rail/TRA/TrainClassification',
+          classification: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/TrainClassification',
           // 車次即時訊息
-          'timetable': 'http://ptx.transportdata.tw/MOTC/v2/Rail/TRA/LiveBoard'
+          timetable: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/LiveBoard'
         };
 
         // 重新整理車站列表
         var stationPair = {};
         function reloadStationList() {
-          $.get(apiUrl['station'], {
+          $.get(apiUrl.station, {
             '$format': 'json'
           }, function (stations) {
             if (0 === stations.length) {
-              return;
+              return false;
             }
             for (let i in stations) {
               stationPair[stations[i]['StationID']] = stations[i]['StationName']['Zh_tw'];
@@ -115,14 +115,10 @@ $title = '即時火車時刻表';
             const $station = $('select[name=station]');
             $station.find('option').not(':first').remove();
             for (let i in stationPair) {
-              let $option = $('<option/>').val(i).text('undefined' !== typeof stationPair[i] ? stationPair[i] : '-');
-              if (i === defaultValue['station']) {
-                $option.prop('selected', true);
-              }
-              $station.append($option);
+              $station.append($('<option/>').val(i).text('undefined' !== typeof stationPair[i] ? stationPair[i] : '-'));
             }
 
-            // 如果已有歷史紀錄，取得最後一次查詢車站與方想當作預設值
+            // 如果已有歷史紀錄，取得最後一次查詢車站與方向當作預設值
             localforage.getItem(historyConfig.key).then((value) => {
               if (null !== value) {
                 rvalue = value.reverse();
@@ -140,23 +136,26 @@ $title = '即時火車時刻表';
             });
 
           }, 'json');
+
         }
 
         // 取得車種列表
         var trainClassificationPair = {};
         function reloadTrainClassificationList() {
-          $.get(apiUrl['classification'], {
+          $.get(apiUrl.classification, {
             '$format': 'json'
           }, function (classifications) {
             for (let j in classifications) {
               if (0 === classifications.length) {
-                return;
+                return false;
               }
               for (let i in classifications) {
                 trainClassificationPair[classifications[i]['TrainClassificationID']] = classifications[i]['TrainClassificationName']['Zh_tw'];
               }
             }
+
           });
+
         }
 
         // reload history
@@ -175,6 +174,7 @@ $title = '即時火車時刻表';
               });
               $history.fadeIn().find("div.well").html(historyHtml);
             }
+
           }).catch ((err) => {
             console.log("reload history data err: ", err);
           });
@@ -185,53 +185,51 @@ $title = '即時火車時刻表';
         function getTimetableResult(stationId, direction) {
           if (0 === stationId.length || 0 === direction.length) {
             alert('資料設定錯誤，請重新輸入');
-            return;
+            return false;
           }
 
           // 加入歷史紀錄
           addHistory(stationId, direction).then(() => {
+            // 設定過濾條件
+            let conditions = [
+              `StationID eq '${stationId}'`,
+              `Direction eq '${direction}'`
+            ];
 
-          // 設定過濾條件
-          let conditions = [
-            `StationID eq '${stationId}'`,
-            `Direction eq '${direction}'`
-          ];
+            $.ajax({
+              'url': apiUrl.timetable,
+              'data': {
+                '$filter': conditions.join(' and '),
+                '$format': 'json'
+              },
+              'dataType': 'json',
+              'success': function (result) {
+                if (0 === result.length || 0 === result[0].length) {
+                  alert('資料取得錯誤，請稍後重試');
+                  return false;
+                }
+                let resultHtml = '';
+                for (let i in result) {
+                  resultHtml += `
+              <blockquote>
+                <p>狀態 <code>${0 === result[i]['DelayTime'] ? '準點' : '<sapn style="font-color: red; font-weight: 900; ">誤點 ' + result[i]['DelayTime'] + ' 分</span>'}</code></p>
+                <p>車種 <code>${'undefined' !== typeof trainClassificationPair[result[i]['TrainClassificationID']] ? trainClassificationPair[result[i]['TrainClassificationID']] : '-'}</code></p>
+                <p>開車時間 <code>${result[i]['ScheduledDepartureTime']}</code></p>
+                <p>終點站 <code>${result[i]['EndingStationName']['Zh_tw']}</code></p>
+                <p>車次 <code>${result[i]['TrainNo']}</code></p>
+              </blockquote>`;
+                }
+                if (0 < resultHtml.length) {
+                  $('.resultBlock').fadeIn().html(resultHtml);
+                }
 
-          $.ajax({
-            'url': apiUrl['timetable'],
-            // 'async': false,
-            'data': {
-              '$filter': conditions.join(' and '),
-              '$format': 'json'
-            },
-            'dataType': 'json',
-            'success': function (result) {
-              if (0 === result[0].length) {
-                alert('資料取得錯誤，請稍後重試');
-                return;
-              }
-              let resultHtml = '';
-              for (let i in result) {
-                resultHtml += `
-            <blockquote>
-              <p>狀態 <code>${0 === result[i]['DelayTime'] ? '準點' : '<sapn style="font-color: red; font-weight: 900; ">誤點 ' + result[i]['DelayTime'] + ' 分</span>'}</code></p>
-              <p>車種 <code>${'undefined' !== typeof trainClassificationPair[result[i]['TrainClassificationID']] ? trainClassificationPair[result[i]['TrainClassificationID']] : '-'}</code></p>
-              <p>開車時間 <code>${result[i]['ScheduledDepartureTime']}</code></p>
-              <p>終點站 <code>${result[i]['EndingStationName']['Zh_tw']}</code></p>
-              <p>車次 <code>${result[i]['TrainNo']}</code></p>
-            </blockquote>`;
-              }
-              if (0 < resultHtml.length) {
-                $('.resultBlock').fadeIn().html(resultHtml);
+                // reload history
+                reloadHistory();
               }
 
-              // reload history
-              reloadHistory();
-            }
+            });
+
           });
-
-          });
-
 
         }
 
@@ -267,12 +265,13 @@ $title = '即時火車時刻表';
           }).catch ((err) => {
             console.log("get history err: ", err);
           });
+
         }
 
         // set selected options
         function setSelectedOptions(stationId, direction) {
-          $("select[name=station]").find("option[value=" + stationId + "]").prop("selected", "selected");
-          $("select[name=direction]").find("option[value=" + direction + "]").prop("selected", "selected");
+          $("select[name=station]").find("option[value=" + stationId + "]").prop("selected", true);
+          $("select[name=direction]").find("option[value=" + direction + "]").prop("selected", true);
         }
 
         $(function () {

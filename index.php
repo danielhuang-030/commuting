@@ -56,11 +56,13 @@ $title = '即時火車時刻表';
                         <option value="1">南下</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary btn-lg btn-block">查詢</button>
+                </div>
                 <div class="form-group history">
                     <label>歷史紀錄</label>
                     <div class="well" style="padding: 5px 10px; "></div>
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg btn-block">查詢</button>
             </form>
             <div class="highlight resultBlock"></div>
         </div>

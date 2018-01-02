@@ -1,14 +1,10 @@
-<?php
-$title = '即時火車時刻表';
-?>
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
     <head>
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title><?php echo $title; ?></title>
+        <title>即時火車時刻表</title>
         <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
         <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" />
         <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.4.0/css/bootstrap-datepicker.css" />
@@ -40,7 +36,7 @@ $title = '即時火車時刻表';
     </head>
     <body>
         <div class="container">
-            <h3><?php echo $title; ?></h3>
+            <h3>即時火車時刻表</h3>
             <form id="dateForm" method="post" role="form">
                 <div class="form-group">
                     <label>車站</label>
@@ -96,7 +92,7 @@ $title = '即時火車時刻表';
           // 車站列表
           station: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/Station',
           // 車種列表
-          classification: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/TrainClassification',
+          classification: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/TrainType',
           // 車次即時訊息
           timetable: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/LiveBoard'
         };
@@ -147,13 +143,12 @@ $title = '即時火車時刻表';
           $.get(apiUrl.classification, {
             '$format': 'json'
           }, function (classifications) {
-            for (let j in classifications) {
-              if (0 === classifications.length) {
-                return false;
-              }
-              for (let i in classifications) {
-                trainClassificationPair[classifications[i]['TrainClassificationID']] = classifications[i]['TrainClassificationName']['Zh_tw'];
-              }
+            if (0 === classifications.length) {
+              return false;
+            }
+
+            for (let i in classifications) {
+              trainClassificationPair[classifications[i]['TrainTypeID']] = classifications[i]['TrainTypeName']['Zh_tw'];
             }
 
           });

@@ -16,6 +16,26 @@
   <script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.17.1/locale/zh-tw.js"></script>
 </head>
 <body>
+
+<nav class="nav navbar-default">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <span class="navbar-brand">Railway</span>
+        </div>
+        <div class="collapse navbar-collapse" id="myNavbar">
+            <ul class="nav navbar-nav">
+                <li><a data-toggle="tab" name="index.html" href="#">即時火車時刻表</a></li>
+                <li class="active"><a data-toggle="tab" name="fare.html" href="#">通勤票價日期計算</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
 <div class="container">
   <h3>通勤票價日期計算</h3>
   <form id="dateForm" method="post" role="form">
@@ -299,6 +319,12 @@ $(function() {
   // 計算
   $('form').submit(function() {
     getFareResult($('select[name=station_start]').val(), $('select[name=station_end]').val(), $('select[name=diff_day]').val());
+    return false;
+  });
+
+  // nav
+  $(".navbar-nav a").on("click", function() {
+    location.href = $(this).prop("name");
     return false;
   });
 

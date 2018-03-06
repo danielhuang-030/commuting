@@ -35,6 +35,25 @@
         <script src="//cdnjs.cloudflare.com/ajax/libs/localforage/1.5.3/localforage.min.js"></script>
     </head>
     <body>
+        <nav class="nav navbar-default">
+            <div class="container-fluid">
+                <div class="navbar-header">
+                    <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                        <span class="icon-bar"></span>
+                    </button>
+                    <span class="navbar-brand">Railway</span>
+                </div>
+                <div class="collapse navbar-collapse" id="myNavbar">
+                    <ul class="nav navbar-nav">
+                        <li class="active"><a data-toggle="tab" name="index.html" href="#">即時火車時刻表</a></li>
+                        <li><a data-toggle="tab" name="fare.html" href="#">通勤票價日期計算</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
         <div class="container">
             <h3>即時火車時刻表</h3>
             <form id="dateForm" method="post" role="form">
@@ -290,6 +309,12 @@
           // 歷史紀錄
           $("div.well").on("click", ".btn-history", function() {
             setSelectedOptions($(this).attr("stationId"), $(this).attr("direction"));
+          });
+
+          // nav
+          $(".navbar-nav a").on("click", function() {
+            location.href = $(this).prop("name");
+            return false;
           });
 
         });

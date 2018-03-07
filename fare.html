@@ -271,7 +271,7 @@ $(function() {
   // 重整行事曆
   let calendarDatas = ['calendar_2018.json', 'calendar_2017.json'];
   $.each(calendarDatas, function(i, calendarFieName) {
-    $.getJSON(window.location.protocol + '//' + window.location.host + '/commuting/data/' + calendarFieName, function(calendarData) {
+    $.getJSON(window.location.protocol + '//' + window.location.host + '/' + window.location.pathname.split('/')[1] + '/data/' + calendarFieName, function(calendarData) {
       $.each(calendarData, function(i, dateInfo) {
         holidayData[dateInfo['西元日期']] = {
           date: dateInfo['西元日期'],

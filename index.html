@@ -235,7 +235,7 @@
                 }
                 let resultHtml = '';
                 for (let i in result) {
-                  resultHtml += `   
+                  resultHtml += `
               <blockquote>
                 <p>狀態 <code>${0 === result[i]['DelayTime'] ? '準點' : '<sapn style="font-color: red; font-weight: 900; ">誤點 ' + result[i]['DelayTime'] + ' 分</span>'}</code></p>
                 <p>車種 <code>${'undefined' !== typeof trainClassificationPair[result[i]['TrainTypeID']] ? trainClassificationPair[result[i]['TrainTypeID']] : '-'}</code></p>

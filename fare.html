@@ -278,7 +278,7 @@ function isHoliday(date = '') {
 
 $(function() {
   // 重整行事曆
-  let calendarDatas = ['calendar_2018.json', 'calendar_2017.json'];
+  let calendarDatas = ['calendar_2018.json', 'calendar_2019.json'];
   $.each(calendarDatas, function(i, calendarFieName) {
     $.getJSON(window.location.protocol + '//' + window.location.host + '/' + window.location.pathname.split('/')[1] + '/data/' + calendarFieName, function(calendarData) {
       $.each(calendarData, function(i, dateInfo) {

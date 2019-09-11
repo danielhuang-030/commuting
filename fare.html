@@ -14,6 +14,7 @@
   <script src="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.4.0/locales/bootstrap-datepicker.zh-TW.min.js" charset="UTF-8"></script>
   <script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.17.1/moment.js"></script>
   <script src="//cdnjs.cloudflare.com/ajax/libs/moment.js/2.17.1/locale/zh-tw.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/localforage/1.5.3/localforage.min.js"></script>
   <!-- Global site tag (gtag.js) - Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=UA-122804908-1"></script>
   <script>
@@ -23,6 +24,28 @@
 
     gtag('config', 'UA-122804908-1');
   </script>
+  <style type="text/css">
+    .well .btn {
+        margin: 6px 0;
+        width: calc((100% - 20px) / 3);
+        border: 2px solid #5bc3e8;
+        background-color: #fff;
+        border-radius: 10px;
+        color: #5bc3e8;
+        font-size: 14px;
+        height: 50px;
+        font-weight: 900;
+        padding: 0;
+    }
+    .well .btn:active {
+        box-shadow: 0 0 4px 0 rgba(0, 0, 0, 0.5);
+        background-color: #5bc3e8;
+        color: #fff;
+    }
+    .well .btn:not(:nth-of-type(3n)) {
+        margin-right: 10px;
+    }
+    </style>
 </head>
 <body>
 
@@ -80,6 +103,11 @@
       <input type="text" class="form-control date" id="endDate" name="end_date" placeholder="請輸入迄日" required="required" value="" readonly="" style="background-color: #fff" />
     </div>
     <button type="submit" class="btn btn-primary btn-lg btn-block">計算</button>
+
+    <div class="form-group history">
+      <label>歷史紀錄</label>
+      <div class="well" style="padding: 5px 10px; "></div>
+    </div>
   </form>
   <div id="json-data-holiday" style="display: none; "><?php echo $jsonData; ?></div>
   <div class="highlight" style="height: 300px; ">
@@ -97,11 +125,17 @@
 
 <script type="text/javascript">
 // 預設值
-const defailtValue = {
+const defaultValue = {
   // 埔心
   station_start: '1018',
   // 台北
   station_end: '1008',
+};
+
+// history config
+const historyConfig = {
+    key: "history",
+    limit: 6
 };
 
 // API url
@@ -168,12 +202,29 @@ function reloadStationList() {
       $station.find('option').not(':first').remove();
       for (let j in stationPair) {
         let $option = $('<option/>').val(j).text('undefined' !== typeof stationPair[j] ? stationPair[j] : '-');
-        if (j === defailtValue[stationNameList[i]]) {
+        if (j === defaultValue[stationNameList[i]]) {
           $option.prop('selected', true);
         }
         $station.append($option);
       }
     }
+
+    // 如果已有歷史紀錄，取得最後一次查詢車站組當作預設值
+    localforage.getItem(historyConfig.key).then((value) => {
+      if (null !== value) {
+        rvalue = value.reverse();
+        defaultValue.station_start = rvalue[0].stationStart;
+        defaultValue.station_end = rvalue[0].stationEnd;
+      }
+    }).then(() => {
+        // set selected options
+        setSelectedOptions(defaultValue.station_start, defaultValue.station_end);
+
+        // reload history
+        reloadHistory();
+    }).catch ((err) => {
+      console.log("get history data err: ", err);
+    });
   }, 'json');
 }
 
@@ -187,49 +238,57 @@ function getFareResult(stationIdStart = '', stationIdEnd = '', days = 0) {
   // reset holidayInfoList
   holidayInfoList = [], makeUpWorkdayInfoList = [];
 
-  $.ajax({
-    'url': `${apiUrl.fare}/${stationIdStart}/to/${stationIdEnd}`,
-    'data': {'$format': 'json'},
-    'dataType': 'json',
-    'success': function(result) {
-      if (0 === result[0].length || 0 === result[0].Fares.length) {
-        alert('資料取得錯誤，請稍後重試');
-        return false;
-      }
-      const json = result[0];
-      for (let i in json.Fares) {
-        if ('成復' === json.Fares[i]['TicketType']) {
-          $('.resultBlock').fadeIn();
+  // 加入歷史紀錄
+  addHistory(stationIdStart, stationIdEnd).then(() => {
 
-          // total
-          const price = json.Fares[i]['Price'];
-          const regularTicketInfo = regularTicketFormula[days];
-          const total = Math.round(price * regularTicketInfo['workdays'] * 2 * regularTicketInfo['discount']);
-          $('.resultBlock p code#fare').text(total);
-
-          // 工作天
-          let workingDays = getWorkingDays($('input[name="start_date"]').val(), $('input[name="end_date"]').val());
-
-//          console.log(holidayInfoList);
-//          console.log(makeUpWorkdayInfoList);
-
-          if ('' !== $('input[name=not_work_day]').val()) {
-            workingDays -= parseInt($('input[name=not_work_day]').val());
-          }
-          const fareForDay = Math.ceil(total / workingDays);
-          const discount = Math.ceil(fareForDay / (price * 2) * 100) / 100;
-          $('.resultBlock p code#workDay').text(workingDays);
-          $('.resultBlock p code#totalDay').text(regularTicketInfo['days']);
-          $('.resultBlock p code#holiday').html((0 < holidayInfoList.length ? '<br />' + holidayInfoList.join('<br />') : '無') + (0 < makeUpWorkdayInfoList.length ? '<br /><span style="font-weight: 900; color: #f9f2f4; background-color: #c7254e; ">' + makeUpWorkdayInfoList.join('<br />') + '</span>' : ''));
-          $('.resultBlock p code#fareForDay').text(fareForDay);
-          $('.resultBlock p code#discount').text(discount);
-          $('.resultBlock p code#result').html(discount >= discountEasycard ? '<sapn style="font-color: red; font-weight: 900; ">悠遊卡</span>' : '定期票');
-          break;
+    $.ajax({
+      'url': `${apiUrl.fare}/${stationIdStart}/to/${stationIdEnd}`,
+      'data': {'$format': 'json'},
+      'dataType': 'json',
+      'success': function(result) {
+        if (0 === result[0].length || 0 === result[0].Fares.length) {
+          alert('資料取得錯誤，請稍後重試');
+          return false;
         }
-      }
+        const json = result[0];
+        for (let i in json.Fares) {
+          if ('成復' === json.Fares[i]['TicketType']) {
+            $('.resultBlock').fadeIn();
 
-    }
+            // total
+            const price = json.Fares[i]['Price'];
+            const regularTicketInfo = regularTicketFormula[days];
+            const total = Math.round(price * regularTicketInfo['workdays'] * 2 * regularTicketInfo['discount']);
+            $('.resultBlock p code#fare').text(total);
+
+            // 工作天
+            let workingDays = getWorkingDays($('input[name="start_date"]').val(), $('input[name="end_date"]').val());
+
+  //          console.log(holidayInfoList);
+  //          console.log(makeUpWorkdayInfoList);
+
+            if ('' !== $('input[name=not_work_day]').val()) {
+              workingDays -= parseInt($('input[name=not_work_day]').val());
+            }
+            const fareForDay = Math.ceil(total / workingDays);
+            const discount = Math.ceil(fareForDay / (price * 2) * 100) / 100;
+            $('.resultBlock p code#workDay').text(workingDays);
+            $('.resultBlock p code#totalDay').text(regularTicketInfo['days']);
+            $('.resultBlock p code#holiday').html((0 < holidayInfoList.length ? '<br />' + holidayInfoList.join('<br />') : '無') + (0 < makeUpWorkdayInfoList.length ? '<br /><span style="font-weight: 900; color: #f9f2f4; background-color: #c7254e; ">' + makeUpWorkdayInfoList.join('<br />') + '</span>' : ''));
+            $('.resultBlock p code#fareForDay').text(fareForDay);
+            $('.resultBlock p code#discount').text(discount);
+            $('.resultBlock p code#result').html(discount >= discountEasycard ? '<sapn style="font-color: red; font-weight: 900; ">悠遊卡</span>' : '定期票');
+            break;
+          }
+        }
+
+      }
+    });
+
+    // 重新整理
+    reloadHistory();
   });
+
   return false;
 }
 
@@ -274,6 +333,70 @@ function isHoliday(date = '') {
       }
   }
   return isHoliday;
+}
+
+// 加入歷史紀錄
+function addHistory(stationStart, stationEnd) {
+  return localforage.getItem(historyConfig.key).then((value) => {
+    if (null === value) {
+      value = [];
+    } else {
+      let unsetIndexs = [];
+      $.each(value, function(i, data) {
+        if (stationStart === data.stationStart && stationEnd === data.stationEnd) {
+          unsetIndexs.push(i);
+        }
+      });
+      if (0 < unsetIndexs.length) {
+        for (let i in unsetIndexs) {
+          value.splice(unsetIndexs[i], 1);
+        }
+      }
+    }
+    if ((historyConfig.limit - 1) < value.length) {
+      value.shift();
+    }
+    value.push({
+      stationStart: stationStart,
+      stationEnd: stationEnd,
+      date: new Date()
+    });
+    localforage.setItem(historyConfig.key, value).catch((err) => {
+      console.log("add history err: ", err);
+    });
+  }).catch ((err) => {
+    console.log("get history err: ", err);
+  });
+
+}
+
+// set selected options
+function setSelectedOptions(stationStart, stationEnd) {
+  $("select[name=station_start]").find("option[value=" + stationStart + "]").prop("selected", true);
+  $("select[name=station_end]").find("option[value=" + stationEnd + "]").prop("selected", true);
+}
+
+// reload history
+function reloadHistory() {
+  const $history = $("div.history");
+  $history.hide();
+
+  localforage.getItem(historyConfig.key).then((value) => {
+    if (null !== value) {
+      let historyHtml = "";
+      rvalue = value.reverse();
+      $.each(rvalue, function(i, data) {
+        if ("undefined" !== typeof stationPair[data.stationStart]) {
+          historyHtml += `<button class="btn btn-history" type="button" stationStart="${data.stationStart}" stationEnd="${data.stationEnd}">${stationPair[data.stationStart]} ~ ${stationPair[data.stationEnd]}</button>`;
+        }
+      });
+      $history.fadeIn().find("div.well").html(historyHtml);
+    }
+
+  }).catch ((err) => {
+    console.log("reload history data err: ", err);
+  });
+
 }
 
 $(function() {
@@ -335,6 +458,11 @@ $(function() {
   $(".navbar-nav a").on("click", function() {
     location.href = $(this).prop("name");
     return false;
+  });
+
+  // 歷史紀錄
+  $("div.well").on("click", ".btn-history", function() {
+    setSelectedOptions($(this).attr("stationStart"), $(this).attr("stationEnd"));
   });
 
 });

@@ -119,11 +119,11 @@
         // API url
         const apiUrl = {
           // 車站列表
-          station: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/Station',
+          station: '//ptx.transportdata.tw/MOTC/v3/Rail/TRA/Station',
           // 車種列表
-          classification: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/TrainType',
+          classification: '//ptx.transportdata.tw/MOTC/v3/Rail/TRA/TrainType',
           // 車次即時訊息
-          timetable: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/LiveBoard'
+          timetable: '//ptx.transportdata.tw/MOTC/v3/Rail/TRA/StationLiveBoard'
         };
 
         // 重新整理車站列表
@@ -131,12 +131,12 @@
         function reloadStationList() {
           $.get(apiUrl.station, {
             '$format': 'json'
-          }, function (stations) {
-            if (0 === stations.length) {
+          }, function (result) {
+            if (0 === result.Stations.length) {
               return false;
             }
-            for (let i in stations) {
-              stationPair[stations[i]['StationID']] = stations[i]['StationName']['Zh_tw'];
+            for (let i in result.Stations) {
+              stationPair[result.Stations[i]['StationID']] = result.Stations[i]['StationName']['Zh_tw'];
             }
 
             const $station = $('select[name=station]');
@@ -171,13 +171,13 @@
         function reloadTrainClassificationList() {
           $.get(apiUrl.classification, {
             '$format': 'json'
-          }, function (classifications) {
-            if (0 === classifications.length) {
+          }, function (reselt) {
+            if (0 === reselt.TrainTypes.length) {
               return false;
             }
 
-            for (let i in classifications) {
-              trainClassificationPair[classifications[i]['TrainTypeID']] = classifications[i]['TrainTypeName']['Zh_tw'];
+            for (let i in reselt.TrainTypes) {
+              trainClassificationPair[reselt.TrainTypes[i]['TrainTypeID']] = reselt.TrainTypes[i]['TrainTypeName']['Zh_tw'];
             }
 
           });
@@ -218,30 +218,32 @@
             // 設定過濾條件
             let conditions = [
               `StationID eq '${stationId}'`,
-              `Direction eq '${direction}'`
+              `Direction eq ${direction}`
             ];
 
             $.ajax({
               'url': apiUrl.timetable,
               'data': {
                 '$filter': conditions.join(' and '),
+                '$top': 30,
+                '$count': 'true',
                 '$format': 'json'
               },
               'dataType': 'json',
               'success': function (result) {
-                if (0 === result.length || 0 === result[0].length) {
+                if (0 === result.StationLiveBoards.length || 0 === result.StationLiveBoards[0].length) {
                   alert('資料取得錯誤，請稍後重試');
                   return false;
                 }
                 let resultHtml = '';
-                for (let i in result) {
+                for (let i in result.StationLiveBoards) {
                   resultHtml += `
               <blockquote>
-                <p>狀態 <code>${0 === result[i]['DelayTime'] ? '準點' : '<sapn style="font-color: red; font-weight: 900; ">誤點 ' + result[i]['DelayTime'] + ' 分</span>'}</code></p>
-                <p>車種 <code>${'undefined' !== typeof trainClassificationPair[result[i]['TrainTypeID']] ? trainClassificationPair[result[i]['TrainTypeID']] : '-'}</code></p>
-                <p>開車時間 <code>${result[i]['ScheduledDepartureTime']}</code></p>
-                <p>終點站 <code>${result[i]['EndingStationName']['Zh_tw']}</code></p>
-                <p>車次 <code>${result[i]['TrainNo']}</code></p>
+                <p>狀態 <code>${0 === result.StationLiveBoards[i]['DelayTime'] ? '準點' : '<sapn style="font-color: red; font-weight: 900; ">誤點 ' + result.StationLiveBoards[i]['DelayTime'] + ' 分</span>'}</code></p>
+                <p>車種 <code>${'undefined' !== typeof trainClassificationPair[result.StationLiveBoards[i]['TrainTypeID']] ? trainClassificationPair[result.StationLiveBoards[i]['TrainTypeID']] : '-'}</code></p>
+                <p>開車時間 <code>${result.StationLiveBoards[i]['ScheduleDepartureTime']}</code></p>
+                <p>終點站 <code>${result.StationLiveBoards[i]['EndingStationName']['Zh_tw']}</code></p>
+                <p>車次 <code>${result.StationLiveBoards[i]['TrainNo']}</code></p>
               </blockquote>`;
                 }
                 if (0 < resultHtml.length) {

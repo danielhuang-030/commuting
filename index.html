@@ -33,6 +33,7 @@
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
         <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
         <script src="//cdnjs.cloudflare.com/ajax/libs/localforage/1.5.3/localforage.min.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/jsSHA/2.3.1/sha1.js"></script>
         <!-- Global site tag (gtag.js) - Google Analytics -->
         <script async src="https://www.googletagmanager.com/gtag/js?id=UA-122804908-1"></script>
         <script>
@@ -126,6 +127,20 @@
           timetable: '//ptx.transportdata.tw/MOTC/v3/Rail/TRA/StationLiveBoard'
         };
 
+        function getAuthorizationHeader() {
+          var AppID = '0a333f2047db427c90110b306a855e71';
+          var AppKey = '-rArWG12RtWQtkQJsB8q1cPNMUg';
+
+          var GMTString = new Date().toGMTString();
+          var ShaObj = new jsSHA('SHA-1', 'TEXT');
+          ShaObj.setHMACKey(AppKey, 'TEXT');
+          ShaObj.update('x-date: ' + GMTString);
+          var HMAC = ShaObj.getHMAC('B64');
+          var Authorization = 'hmac username=\"' + AppID + '\", algorithm=\"hmac-sha1\", headers=\"x-date\", signature=\"' + HMAC + '\"';
+
+          return { 'Authorization': Authorization, 'X-Date': GMTString /*,'Accept-Encoding': 'gzip'*/}; //如果要將js運行在伺服器，可額外加入 'Accept-Encoding': 'gzip'，要求壓縮以減少網路傳輸資料量
+        }
+
         // 重新整理車站列表
         var stationPair = {};
         function reloadStationList() {
@@ -206,7 +221,7 @@
 
         }
 
-        // 取得票價計算結果
+        // 取得時刻看板結果
         function getTimetableResult(stationId, direction) {
           if (0 === stationId.length || 0 === direction.length) {
             alert('資料設定錯誤，請重新輸入');
@@ -230,6 +245,7 @@
                 '$format': 'json'
               },
               'dataType': 'json',
+              'headers': getAuthorizationHeader(),
               'success': function (result) {
                 if (0 === result.StationLiveBoards.length || 0 === result.StationLiveBoards[0].length) {
                   alert('資料取得錯誤，請稍後重試');

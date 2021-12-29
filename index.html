@@ -5,9 +5,9 @@
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>即時火車時刻表</title>
-        <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
-        <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" />
-        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.4.0/css/bootstrap-datepicker.css" />
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.4.0/css/bootstrap-datepicker.css" />
         <style type="text/css">
         .well .btn {
             margin: 6px 0;
@@ -30,10 +30,10 @@
             margin-right: 10px;
         }
         </style>
-        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
-        <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-        <script src="//cdnjs.cloudflare.com/ajax/libs/localforage/1.5.3/localforage.min.js"></script>
-        <script src="//cdnjs.cloudflare.com/ajax/libs/jsSHA/2.3.1/sha1.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.5.3/localforage.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jsSHA/2.3.1/sha1.js"></script>
         <!-- Global site tag (gtag.js) - Google Analytics -->
         <script async src="https://www.googletagmanager.com/gtag/js?id=UA-122804908-1"></script>
         <script>
@@ -120,11 +120,11 @@
         // API url
         const apiUrl = {
           // 車站列表
-          station: '//ptx.transportdata.tw/MOTC/v3/Rail/TRA/Station',
+          station: 'https://ptx.transportdata.tw/MOTC/v3/Rail/TRA/Station',
           // 車種列表
-          classification: '//ptx.transportdata.tw/MOTC/v3/Rail/TRA/TrainType',
+          classification: 'https://ptx.transportdata.tw/MOTC/v3/Rail/TRA/TrainType',
           // 車次即時訊息
-          timetable: '//ptx.transportdata.tw/MOTC/v3/Rail/TRA/StationLiveBoard'
+          timetable: 'https://ptx.transportdata.tw/MOTC/v3/Rail/TRA/StationLiveBoard'
         };
 
         function getAuthorizationHeader() {

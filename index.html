@@ -5,9 +5,9 @@
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>即時火車時刻表</title>
-        <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
-        <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" />
-        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.4.0/css/bootstrap-datepicker.css" />
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.4.0/css/bootstrap-datepicker.css" />
         <style type="text/css">
         .well .btn {
             margin: 6px 0;
@@ -30,9 +30,10 @@
             margin-right: 10px;
         }
         </style>
-        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
-        <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-        <script src="//cdnjs.cloudflare.com/ajax/libs/localforage/1.5.3/localforage.min.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.5.3/localforage.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jsSHA/2.3.1/sha1.js"></script>
         <!-- Global site tag (gtag.js) - Google Analytics -->
         <script async src="https://www.googletagmanager.com/gtag/js?id=UA-122804908-1"></script>
         <script>
@@ -118,25 +119,51 @@
 
         // API url
         const apiUrl = {
+          // token
+          token: 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token',
           // 車站列表
-          station: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/Station',
+          station: 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/Station',
           // 車種列表
-          classification: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/TrainType',
+          classification: 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/TrainType',
           // 車次即時訊息
-          timetable: '//ptx.transportdata.tw/MOTC/v2/Rail/TRA/LiveBoard'
+          timetable: 'https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/LiveBoard/Station/'
         };
+
+        let tokenForTdx = getTokenForTdx();
+        function getTokenForTdx() {
+          const clientId = 'danielhuang030-8c54e46b-82b2-4fbc';
+          const clientSecret = 'ed1ece91-38d9-435a-903e-de5cc159e8d7';
+
+          $.ajax({
+            url: apiUrl.token,
+            type: "POST",
+            crossDomain: true,
+            data: {
+              client_id: clientId,
+              client_secret: clientSecret,
+              grant_type: "client_credentials"
+            },
+            dataType: "json",
+            success: function (json) {
+              tokenForTdx = json.access_token;
+            },
+            error: function (xhr, status) {
+              console.log(xhr, status);
+            }
+          });
+        }
 
         // 重新整理車站列表
         var stationPair = {};
         function reloadStationList() {
           $.get(apiUrl.station, {
             '$format': 'json'
-          }, function (stations) {
-            if (0 === stations.length) {
+          }, function (result) {
+            if (0 === result.Stations.length) {
               return false;
             }
-            for (let i in stations) {
-              stationPair[stations[i]['StationID']] = stations[i]['StationName']['Zh_tw'];
+            for (let i in result.Stations) {
+              stationPair[result.Stations[i]['StationID']] = result.Stations[i]['StationName']['Zh_tw'];
             }
 
             const $station = $('select[name=station]');
@@ -171,13 +198,13 @@
         function reloadTrainClassificationList() {
           $.get(apiUrl.classification, {
             '$format': 'json'
-          }, function (classifications) {
-            if (0 === classifications.length) {
+          }, function (reselt) {
+            if (0 === reselt.TrainTypes.length) {
               return false;
             }
 
-            for (let i in classifications) {
-              trainClassificationPair[classifications[i]['TrainTypeID']] = classifications[i]['TrainTypeName']['Zh_tw'];
+            for (let i in reselt.TrainTypes) {
+              trainClassificationPair[reselt.TrainTypes[i]['TrainTypeID']] = reselt.TrainTypes[i]['TrainTypeName']['Zh_tw'];
             }
 
           });
@@ -206,7 +233,7 @@
 
         }
 
-        // 取得票價計算結果
+        // 取得時刻看板結果
         function getTimetableResult(stationId, direction) {
           if (0 === stationId.length || 0 === direction.length) {
             alert('資料設定錯誤，請重新輸入');
@@ -217,19 +244,23 @@
           addHistory(stationId, direction).then(() => {
             // 設定過濾條件
             let conditions = [
-              `StationID eq '${stationId}'`,
-              `Direction eq '${direction}'`
+              `Direction eq ${direction}`
             ];
 
             $.ajax({
-              'url': apiUrl.timetable,
+              beforeSend: function (xhr) {
+                xhr.setRequestHeader('Authorization', 'Bearer ' + tokenForTdx);
+              },
+              'url': apiUrl.timetable + stationId,
               'data': {
                 '$filter': conditions.join(' and '),
+                '$top': 30,
+                '$count': 'true',
                 '$format': 'json'
               },
               'dataType': 'json',
               'success': function (result) {
-                if (0 === result.length || 0 === result[0].length) {
+                if (0 === result.length) {
                   alert('資料取得錯誤，請稍後重試');
                   return false;
                 }

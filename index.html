@@ -119,26 +119,38 @@
 
         // API url
         const apiUrl = {
+          // token
+          token: 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token',
           // 車站列表
-          station: 'https://ptx.transportdata.tw/MOTC/v3/Rail/TRA/Station',
+          station: 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/Station',
           // 車種列表
-          classification: 'https://ptx.transportdata.tw/MOTC/v3/Rail/TRA/TrainType',
+          classification: 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/TrainType',
           // 車次即時訊息
-          timetable: 'https://ptx.transportdata.tw/MOTC/v3/Rail/TRA/StationLiveBoard'
+          timetable: 'https://tdx.transportdata.tw/api/basic/v2/Rail/TRA/LiveBoard/Station/'
         };
 
-        function getAuthorizationHeader() {
-          var AppID = '0a333f2047db427c90110b306a855e71';
-          var AppKey = '-rArWG12RtWQtkQJsB8q1cPNMUg';
+        let tokenForTdx = getTokenForTdx();
+        function getTokenForTdx() {
+          const clientId = 'danielhuang030-8c54e46b-82b2-4fbc';
+          const clientSecret = 'ed1ece91-38d9-435a-903e-de5cc159e8d7';
 
-          var GMTString = new Date().toGMTString();
-          var ShaObj = new jsSHA('SHA-1', 'TEXT');
-          ShaObj.setHMACKey(AppKey, 'TEXT');
-          ShaObj.update('x-date: ' + GMTString);
-          var HMAC = ShaObj.getHMAC('B64');
-          var Authorization = 'hmac username=\"' + AppID + '\", algorithm=\"hmac-sha1\", headers=\"x-date\", signature=\"' + HMAC + '\"';
-
-          return { 'Authorization': Authorization, 'X-Date': GMTString /*,'Accept-Encoding': 'gzip'*/}; //如果要將js運行在伺服器，可額外加入 'Accept-Encoding': 'gzip'，要求壓縮以減少網路傳輸資料量
+          $.ajax({
+            url: apiUrl.token,
+            type: "POST",
+            crossDomain: true,
+            data: {
+              client_id: clientId,
+              client_secret: clientSecret,
+              grant_type: "client_credentials"
+            },
+            dataType: "json",
+            success: function (json) {
+              tokenForTdx = json.access_token;
+            },
+            error: function (xhr, status) {
+              console.log(xhr, status);
+            }
+          });
         }
 
         // 重新整理車站列表
@@ -232,12 +244,14 @@
           addHistory(stationId, direction).then(() => {
             // 設定過濾條件
             let conditions = [
-              `StationID eq '${stationId}'`,
               `Direction eq ${direction}`
             ];
 
             $.ajax({
-              'url': apiUrl.timetable,
+              beforeSend: function (xhr) {
+                xhr.setRequestHeader('Authorization', 'Bearer ' + tokenForTdx);
+              },
+              'url': apiUrl.timetable + stationId,
               'data': {
                 '$filter': conditions.join(' and '),
                 '$top': 30,
@@ -245,21 +259,20 @@
                 '$format': 'json'
               },
               'dataType': 'json',
-              'headers': getAuthorizationHeader(),
               'success': function (result) {
-                if (0 === result.StationLiveBoards.length || 0 === result.StationLiveBoards[0].length) {
+                if (0 === result.length) {
                   alert('資料取得錯誤，請稍後重試');
                   return false;
                 }
                 let resultHtml = '';
-                for (let i in result.StationLiveBoards) {
+                for (let i in result) {
                   resultHtml += `
               <blockquote>
-                <p>狀態 <code>${0 === result.StationLiveBoards[i]['DelayTime'] ? '準點' : '<sapn style="font-color: red; font-weight: 900; ">誤點 ' + result.StationLiveBoards[i]['DelayTime'] + ' 分</span>'}</code></p>
-                <p>車種 <code>${'undefined' !== typeof trainClassificationPair[result.StationLiveBoards[i]['TrainTypeID']] ? trainClassificationPair[result.StationLiveBoards[i]['TrainTypeID']] : '-'}</code></p>
-                <p>開車時間 <code>${result.StationLiveBoards[i]['ScheduleDepartureTime']}</code></p>
-                <p>終點站 <code>${result.StationLiveBoards[i]['EndingStationName']['Zh_tw']}</code></p>
-                <p>車次 <code>${result.StationLiveBoards[i]['TrainNo']}</code></p>
+                <p>狀態 <code>${0 === result[i]['DelayTime'] ? '準點' : '<sapn style="font-color: red; font-weight: 900; ">誤點 ' + result[i]['DelayTime'] + ' 分</span>'}</code></p>
+                <p>車種 <code>${'undefined' !== typeof trainClassificationPair[result[i]['TrainTypeID']] ? trainClassificationPair[result[i]['TrainTypeID']] : '-'}</code></p>
+                <p>開車時間 <code>${result[i]['ScheduledDepartureTime']}</code></p>
+                <p>終點站 <code>${result[i]['EndingStationName']['Zh_tw']}</code></p>
+                <p>車次 <code>${result[i]['TrainNo']}</code></p>
               </blockquote>`;
                 }
                 if (0 < resultHtml.length) {

@@ -140,11 +140,37 @@ const historyConfig = {
 
 // API url
 const apiUrl = {
+  // token
+  token: 'https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token',
   // 車站列表
-  station: 'https://ptx.transportdata.tw/MOTC/v2/Rail/TRA/Station',
+  station: 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/Station',
   // 車站票價
-  fare: 'https://ptx.transportdata.tw/MOTC/v2/Rail/TRA/ODFare'
+  fare: 'https://tdx.transportdata.tw/api/basic/v3/Rail/TRA/ODFare'
 };
+
+let tokenForTdx = getTokenForTdx();
+function getTokenForTdx() {
+  const clientId = 'danielhuang030-8c54e46b-82b2-4fbc';
+  const clientSecret = 'ed1ece91-38d9-435a-903e-de5cc159e8d7';
+
+  $.ajax({
+    url: apiUrl.token,
+    type: "POST",
+    crossDomain: true,
+    data: {
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "client_credentials"
+    },
+    dataType: "json",
+    success: function (json) {
+      tokenForTdx = json.access_token;
+    },
+    error: function (xhr, status) {
+      console.log(xhr, status);
+    }
+  });
+}
 
 // 定期票計算公式
 const regularTicketFormula = {
@@ -188,12 +214,12 @@ let stationPair = {};
 function reloadStationList() {
   $.get(apiUrl.station, {
     '$format': 'json'
-  }, function(stations) {
-    if (0 === stations.length) {
+  }, function(result) {
+    if (0 === result.Stations.length) {
       return false;
     }
-    for (let i in stations) {
-      stationPair[stations[i]['StationID']] = stations[i]['StationName']['Zh_tw'];
+    for (let i in result.Stations) {
+      stationPair[result.Stations[i]['StationID']] = result.Stations[i]['StationName']['Zh_tw'];
     }
 
     const stationNameList = ['station_start', 'station_end'];
@@ -242,21 +268,24 @@ function getFareResult(stationIdStart = '', stationIdEnd = '', days = 0) {
   addHistory(stationIdStart, stationIdEnd).then(() => {
 
     $.ajax({
+      beforeSend: function (xhr) {
+        xhr.setRequestHeader('Authorization', 'Bearer ' + tokenForTdx);
+      },
       'url': `${apiUrl.fare}/${stationIdStart}/to/${stationIdEnd}`,
       'data': {'$format': 'json'},
       'dataType': 'json',
       'success': function(result) {
-        if (0 === result[0].length || 0 === result[0].Fares.length) {
+        if (0 === result.ODFares.length) {
           alert('資料取得錯誤，請稍後重試');
           return false;
         }
-        const json = result[0];
-        for (let i in json.Fares) {
-          if ('成復' === json.Fares[i]['TicketType']) {
+        for (let i in result.ODFares) {
+          // 以區間車的票價計算
+          if (6 === result.ODFares[i]['TrainType']) {
             $('.resultBlock').fadeIn();
 
             // total
-            const price = json.Fares[i]['Price'];
+            const price = result.ODFares[i]['Fares'][0]['Price'];
             const regularTicketInfo = regularTicketFormula[days];
             const total = Math.round(price * regularTicketInfo['workdays'] * 2 * regularTicketInfo['discount']);
             $('.resultBlock p code#fare').text(total);

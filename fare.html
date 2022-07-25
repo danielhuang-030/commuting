@@ -280,8 +280,10 @@ function getFareResult(stationIdStart = '', stationIdEnd = '', days = 0) {
           return false;
         }
         for (let i in result.ODFares) {
+          // 判斷方向
+          let direction = + ((stationIdEnd - stationIdStart) > 0);
           // 以區間車的票價計算
-          if (6 === result.ODFares[i]['TrainType']) {
+          if (6 === result.ODFares[i]['TrainType'] && direction == result.ODFares[i]['Direction']) {
             $('.resultBlock').fadeIn();
 
             // total

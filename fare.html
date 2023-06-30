@@ -432,7 +432,7 @@ function reloadHistory() {
 
 $(function() {
   // 重整行事曆
-  let calendarDatas = ['calendar_2021.json', 'calendar_2022.json', 'calendar_2023.json'];
+  let calendarDatas = ['calendar_2022.json', 'calendar_2023.json', 'calendar_2024.json'];
   $.each(calendarDatas, function(i, calendarFieName) {
     // $.getJSON(window.location.protocol + '//' + window.location.host + '/' + window.location.pathname.split('/')[1] + '/data/' + calendarFieName, function(calendarData) {
     $.getJSON('./data/' + calendarFieName, function(calendarData) {
